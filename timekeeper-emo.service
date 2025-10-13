@@ -1,18 +1,25 @@
 [Unit]
 Description=Timekeeper Emo-chan - NFC Time Tracking with BOCCO emo
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=pi
 Group=pi
-WorkingDirectory=/home/pi/timekeeper-emo-chan
-Environment="PATH=/home/pi/timekeeper-emo-chan/venv/bin"
-ExecStart=/home/pi/timekeeper-emo-chan/venv/bin/python /home/pi/timekeeper-emo-chan/main.py
+WorkingDirectory=/home/pi/dev/timekeeper-emo-chan
+Environment="PATH=/home/pi/dev/timekeeper-emo-chan/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/home/pi/dev/timekeeper-emo-chan/venv/bin/python main.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+
+# Graceful shutdown
+TimeoutStopSec=10
+KillMode=mixed
+KillSignal=SIGINT
 
 # Security settings
 NoNewPrivileges=true
