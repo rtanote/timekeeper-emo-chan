@@ -23,11 +23,14 @@ except ImportError:
 class CardRegistration:
     """NFCカード登録ツール"""
 
-    def __init__(self, device_path: str = "/dev/ttyUSB0"):
+    def __init__(self, device_path: str = None):
         """
         Args:
             device_path: NFCリーダーのデバイスパス
         """
+        # 環境変数から読み込む（未指定の場合）
+        if device_path is None:
+            device_path = os.getenv('NFC_READER_PATH', 'usb')
         self.device_path = device_path
         self.mapping_file = "card_mapping.json"
         self.cards = self.load_mapping()
@@ -213,8 +216,8 @@ def main():
     """エントリーポイント"""
     load_dotenv()
 
-    device_path = os.getenv('NFC_READER_PATH', '/dev/ttyUSB0')
-    tool = CardRegistration(device_path)
+    # device_path は CardRegistration クラス内で環境変数から読み込まれる
+    tool = CardRegistration()
 
     if len(sys.argv) > 1:
         command = sys.argv[1]
