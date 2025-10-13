@@ -1,0 +1,26 @@
+# Timekeeper Emo-chan Dependencies
+
+# NFC Reader
+nfcpy>=1.0.4
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# HTTP Requests
+requests>=2.31.0
+
+# BOCCO emo Platform API
+emo-platform-api-sdk>=0.1.0
+
+# Japanese Holiday Detection
+jpholiday>=0.1.8
+
+# Date/Time Utilities
+python-dateutil>=2.8.2
+
+# Optional: Toggl Track API Client
+# toggl-api-wrapper>=1.0.0  # または適切なライブラリ
+
+# Optional: USB Device Access (Linux)
+# pyusb>=1.2.1
+# libusb>=1.0.26

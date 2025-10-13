@@ -1,0 +1,22 @@
+[Unit]
+Description=Timekeeper Emo-chan - NFC Time Tracking with BOCCO emo
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/timekeeper-emo-chan
+Environment="PATH=/home/pi/timekeeper-emo-chan/venv/bin"
+ExecStart=/home/pi/timekeeper-emo-chan/venv/bin/python /home/pi/timekeeper-emo-chan/main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
