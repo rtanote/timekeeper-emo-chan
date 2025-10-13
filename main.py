@@ -241,6 +241,10 @@ class TogglClient:
             作成されたタイマー情報（dict）
         """
         import requests
+        from datetime import timezone
+
+        # UTC時刻を明示的に使用
+        start_time = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
 
         payload = {
             "workspace_id": int(self.workspace_id),
@@ -248,7 +252,7 @@ class TogglClient:
             "description": description,
             "created_with": "timekeeper-emo-chan",
             "duration": -1,  # -1 = running timer
-            "start": datetime.now().isoformat() + 'Z'
+            "start": start_time
         }
 
         try:
