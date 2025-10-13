@@ -135,8 +135,14 @@ class EmoScheduler:
         if not result or not result['last_time']:
             return False
 
+        from datetime import timezone
         last_work_time = datetime.fromisoformat(result['last_time'])
-        days_since = (datetime.now() - last_work_time).days
+        # タイムゾーン対応: last_work_timeがoffset-awareの場合、nowもoffset-awareにする
+        if last_work_time.tzinfo is not None:
+            now_for_comparison = datetime.now(timezone.utc)
+        else:
+            now_for_comparison = datetime.now()
+        days_since = (now_for_comparison - last_work_time).days
 
         return days_since >= 3
 

@@ -143,24 +143,27 @@ class TogglClient:
         時間エントリーを取得
 
         Args:
-            start_date: 開始日時
-            end_date: 終了日時
+            start_date: 開始日時（UTCタイムゾーン推奨）
+            end_date: 終了日時（UTCタイムゾーン推奨）
 
         Returns:
             時間エントリーのリスト
         """
         import requests
-        from urllib.parse import urlencode
 
-        params = {
-            'start_date': start_date.isoformat() + 'Z',
-            'end_date': end_date.isoformat() + 'Z'
-        }
+        # ISO 8601形式に変換（タイムゾーン情報を含む）
+        # Toggl APIはRFC3339形式を期待
+        start_str = start_date.isoformat().replace('+00:00', 'Z')
+        end_str = end_date.isoformat().replace('+00:00', 'Z')
 
         try:
             response = requests.get(
-                f"{self.base_url}/me/time_entries?{urlencode(params)}",
+                f"{self.base_url}/me/time_entries",
                 headers=self.headers,
+                params={
+                    'start_date': start_str,
+                    'end_date': end_str
+                },
                 timeout=10
             )
             response.raise_for_status()
@@ -456,7 +459,7 @@ class TimekeeperEmoApp:
             return mapping
 
         except Exception as e:
-            print(f"Error loading card mapping: {e}")
+            print(f"[ERROR] Error loading card mapping: {e}")
             return {}
 
     def _signal_handler(self, signum, frame):
@@ -591,10 +594,13 @@ class TimekeeperEmoApp:
                 return
 
             # 作業時間を計算
+            from datetime import timezone
             start_time = datetime.fromisoformat(
                 current_timer['start'].replace('Z', '+00:00')
             )
-            duration_minutes = int((datetime.now() - start_time).total_seconds() / 60)
+            # 両方の日時をタイムゾーン対応にする
+            now_with_tz = datetime.now(timezone.utc)
+            duration_minutes = int((now_with_tz - start_time).total_seconds() / 60)
 
             project_id = current_timer.get('project_id', '')
             project_name = current_timer.get('project_name', 'プロジェクト')

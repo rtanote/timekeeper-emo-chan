@@ -81,7 +81,10 @@ class PatternLearner:
             print("Warning: Toggl client not provided")
             return 0
 
-        end_date = datetime.now()
+        from datetime import timezone
+
+        # タイムゾーン情報を持った日時を使用
+        end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=self.learning_period_days)
 
         print(f"Fetching work history from {start_date.date()} to {end_date.date()}...")
