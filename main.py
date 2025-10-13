@@ -336,6 +336,7 @@ class NFCReader:
 
         self.device_path = device_path
         self.clf = None
+        self.should_stop = False  # 停止フラグ
 
         try:
             import nfc
@@ -390,7 +391,7 @@ class NFCReader:
                 rdwr={
                     'on-connect': lambda tag: False  # 接続したら即座に切断
                 },
-                terminate=lambda: False  # 終了条件なし（常に待機）
+                terminate=lambda: self.should_stop  # 停止フラグをチェック
             )
 
             if tag:
@@ -410,12 +411,16 @@ class NFCReader:
 
     def close(self):
         """NFCリーダーをクローズ"""
+        # 停止フラグを設定してブロッキングを解除
+        self.should_stop = True
+        logger.info("NFC reader stop flag set")
+
         if self.clf:
             try:
                 self.clf.close()
-                print("[NFC] Reader closed")
+                logger.info("NFC reader closed")
             except Exception as e:
-                print(f"[NFC] Error closing reader: {e}")
+                logger.error(f"Error closing NFC reader: {e}")
 
 
 class TimekeeperEmoApp:
