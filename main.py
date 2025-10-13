@@ -7,12 +7,42 @@ import os
 import sqlite3
 import signal
 import sys
+import logging
 from datetime import datetime
 from dotenv import load_dotenv
 
 from pattern_learner import PatternLearner
 from message_generator import MessageGenerator
 from emo_scheduler import EmoScheduler
+
+# ロガー設定
+def setup_logger():
+    """ロガーを設定"""
+    logger = logging.getLogger('timekeeper')
+    logger.setLevel(logging.DEBUG)
+
+    # コンソールハンドラー
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    # ファイルハンドラー
+    file_handler = logging.FileHandler('timekeeper.log', encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+
+    # フォーマッター
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+
+    return logger
+
+logger = setup_logger()
 
 
 # BOCCO emo クライアント
@@ -291,11 +321,15 @@ class TogglClient:
 class NFCReader:
     """NFC リーダー (Sony RC-S380)"""
 
-    def __init__(self, device_path: str = "/dev/ttyUSB0"):
+    def __init__(self, device_path: str = None):
         """
         Args:
-            device_path: NFCリーダーのデバイスパス
+            device_path: NFCリーダーのデバイスパス（Noneの場合は環境変数から読み込む）
         """
+        # 環境変数から読み込む（未指定の場合）
+        if device_path is None:
+            device_path = os.getenv('NFC_READER_PATH', 'usb')
+
         self.device_path = device_path
         self.clf = None
 
@@ -303,18 +337,32 @@ class NFCReader:
             import nfc
             self.nfc_available = True
         except ImportError:
-            print("[NFC] nfcpy not installed, running in dummy mode")
+            logger.warning("nfcpy not installed, running in dummy mode")
             self.nfc_available = False
             return
 
         try:
             # NFCリーダーを初期化
+            logger.info(f"Initializing NFC reader with path: {device_path}")
             self.clf = nfc.ContactlessFrontend(device_path)
-            print(f"[NFC] Reader initialized: {self.clf}")
+            logger.info(f"NFC Reader initialized: {self.clf}")
         except Exception as e:
-            print(f"[NFC] Failed to initialize reader: {e}")
-            print("[NFC] Running in dummy mode")
-            self.nfc_available = False
+            logger.error(f"Failed to initialize NFC reader with path '{device_path}': {e}")
+
+            # usb:VID:PID 形式の場合は 'usb' だけで再試行
+            if ':' in device_path and device_path.startswith('usb'):
+                logger.info("Retrying with generic 'usb' path...")
+                try:
+                    self.clf = nfc.ContactlessFrontend('usb')
+                    logger.info(f"NFC Reader initialized with generic 'usb' path: {self.clf}")
+                    self.device_path = 'usb'
+                except Exception as e2:
+                    logger.error(f"Failed to initialize with generic 'usb' path: {e2}")
+                    logger.info("Running in dummy mode")
+                    self.nfc_available = False
+            else:
+                logger.info("Running in dummy mode")
+                self.nfc_available = False
 
     def read_card(self):
         """
@@ -333,6 +381,7 @@ class NFCReader:
             import nfc
 
             # カードを待機（ブロッキング）
+            logger.debug("Waiting for NFC card...")
             tag = self.clf.connect(
                 rdwr={
                     'on-connect': lambda tag: False  # 接続したら即座に切断
@@ -343,13 +392,13 @@ class NFCReader:
             if tag:
                 # カードIDを16進数文字列に変換
                 card_id = tag.identifier.hex()
-                print(f"[NFC] Card detected: {card_id}")
+                logger.info(f"Card detected: {card_id}")
                 return card_id
 
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            print(f"[NFC] Error reading card: {e}")
+            logger.error(f"Error reading card: {e}", exc_info=True)
             import time
             time.sleep(0.5)  # エラー時は少し待機
 
@@ -390,9 +439,8 @@ class TimekeeperEmoApp:
             workspace_id=os.getenv('TOGGL_WORKSPACE_ID', '')
         )
 
-        self.nfc = NFCReader(
-            device_path=os.getenv('NFC_READER_PATH', '/dev/ttyUSB0')
-        )
+        # NFCReaderは内部で環境変数を読み込む
+        self.nfc = NFCReader()
 
         # コア機能初期化
         self.learner = PatternLearner(self.db, self.toggl)
