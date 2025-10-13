@@ -233,17 +233,19 @@ class TogglClient:
             print(f"[Toggl] Error starting timer: {e}")
             raise
 
-    def stop_timer(self, timer_id: int = None):
+    def stop_timer(self, timer_id: int = None, retry_on_500: bool = True):
         """
         タイマーを停止
 
         Args:
             timer_id: タイマーID（指定しない場合は現在のタイマーを停止）
+            retry_on_500: 500エラー時にリトライするか
 
         Returns:
             停止されたタイマー情報（dict）
         """
         import requests
+        import time
 
         # timer_id未指定の場合は現在のタイマーを取得
         if timer_id is None:
@@ -253,19 +255,34 @@ class TogglClient:
                 return None
             timer_id = current['id']
 
-        try:
-            response = requests.patch(
-                f"{self.base_url}/workspaces/{self.workspace_id}/time_entries/{timer_id}/stop",
-                headers=self.headers,
-                timeout=10
-            )
-            response.raise_for_status()
-            data = response.json()
-            print(f"[Toggl] Timer stopped")
-            return data
-        except requests.exceptions.RequestException as e:
-            print(f"[Toggl] Error stopping timer: {e}")
-            raise
+        max_retries = 3 if retry_on_500 else 1
+        for attempt in range(max_retries):
+            try:
+                response = requests.patch(
+                    f"{self.base_url}/workspaces/{self.workspace_id}/time_entries/{timer_id}/stop",
+                    headers=self.headers,
+                    timeout=10
+                )
+
+                # 500エラーの場合はリトライ
+                if response.status_code == 500 and attempt < max_retries - 1:
+                    print(f"[Toggl] 500 error on stop timer, retrying... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(1)  # 1秒待ってリトライ
+                    continue
+
+                response.raise_for_status()
+                data = response.json()
+                print(f"[Toggl] Timer stopped")
+                return data
+
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries - 1:
+                    print(f"[Toggl] Error stopping timer, retrying... (attempt {attempt + 1}/{max_retries}): {e}")
+                    time.sleep(1)
+                else:
+                    print(f"[Toggl] Error stopping timer after {max_retries} attempts: {e}")
+                    # 最後の試行でも失敗した場合は例外を投げずにNoneを返す
+                    return None
 
 
 class NFCReader:
@@ -385,6 +402,10 @@ class TimekeeperEmoApp:
         # カードとプロジェクトのマッピング（要設定）
         self.card_projects = self._load_card_mapping()
 
+        # デバウンス用：最後にタップしたカードIDと時刻
+        self.last_card_tap = {}  # {card_id: timestamp}
+        self.debounce_seconds = 3  # 同じカードを3秒以内に複数回タップした場合は無視
+
         # シグナルハンドラー設定
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -494,7 +515,20 @@ class TimekeeperEmoApp:
         Args:
             card_id: カードID
         """
+        import time
+
         print(f"\n[NFC] Card detected: {card_id}")
+
+        # デバウンスチェック：同じカードを短時間に複数回タップした場合は無視
+        current_time = time.time()
+        if card_id in self.last_card_tap:
+            time_since_last_tap = current_time - self.last_card_tap[card_id]
+            if time_since_last_tap < self.debounce_seconds:
+                print(f"[NFC] Debounce: Ignoring tap (last tap was {time_since_last_tap:.1f}s ago)")
+                return
+
+        # 最後のタップ時刻を更新
+        self.last_card_tap[card_id] = current_time
 
         # カードIDからプロジェクトを取得
         project_id = self.card_projects.get(card_id)
@@ -514,7 +548,7 @@ class TimekeeperEmoApp:
         if current_timer is None:
             self._start_timer(project_id)
         # 同じプロジェクトのタイマーが動いている → 停止
-        elif current_timer.get('project_id') == project_id:
+        elif current_timer.get('project_id') == int(project_id):
             self._stop_timer(current_timer)
         # 別のプロジェクトが動いている → 切り替え
         else:
@@ -548,7 +582,13 @@ class TimekeeperEmoApp:
     def _stop_timer(self, current_timer: dict):
         """タイマーを停止"""
         try:
-            self.toggl.stop_timer()
+            result = self.toggl.stop_timer()
+
+            # リトライしても停止できなかった場合
+            if result is None:
+                print("[WARNING] Failed to stop timer after retries, but continuing...")
+                self.emo.send_message("タイマーの停止に失敗したかも...もう一度タッチしてみて？")
+                return
 
             # 作業時間を計算
             start_time = datetime.fromisoformat(
