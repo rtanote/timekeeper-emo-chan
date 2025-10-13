@@ -372,6 +372,7 @@ class NFCReader:
     def read_card(self):
         """
         カードを読み取り（ブロッキング）
+        カードがタッチされてからリリースされるまで待機
 
         Returns:
             カードID（16進数文字列）、またはNone
@@ -387,18 +388,32 @@ class NFCReader:
 
             # カードを待機（ブロッキング）
             logger.debug("Waiting for NFC card...")
+
+            card_id_holder = {'id': None, 'released': False}
+
+            def on_connect(tag):
+                """カード接続時のコールバック"""
+                card_id_holder['id'] = tag.identifier.hex()
+                logger.info(f"Card detected: {card_id_holder['id']}")
+                # Trueを返してカードの接続を保持し、on-releaseが呼ばれるようにする
+                return True
+
+            def on_release(tag):
+                """カードリリース時のコールバック"""
+                logger.debug(f"Card released: {card_id_holder['id']}")
+                card_id_holder['released'] = True
+
             tag = self.clf.connect(
                 rdwr={
-                    'on-connect': lambda tag: False  # 接続したら即座に切断
+                    'on-connect': on_connect,
+                    'on-release': on_release
                 },
                 terminate=lambda: self.should_stop  # 停止フラグをチェック
             )
 
-            if tag:
-                # カードIDを16進数文字列に変換
-                card_id = tag.identifier.hex()
-                logger.info(f"Card detected: {card_id}")
-                return card_id
+            # カードがリリースされた後にIDを返す
+            if card_id_holder['released'] and card_id_holder['id']:
+                return card_id_holder['id']
 
         except KeyboardInterrupt:
             raise
@@ -474,10 +489,6 @@ class TimekeeperEmoApp:
 
         # カードとプロジェクトのマッピング（要設定）
         self.card_projects = self._load_card_mapping()
-
-        # デバウンス用：最後にタップしたカードIDと時刻
-        self.last_card_tap = {}  # {card_id: timestamp}
-        self.debounce_seconds = 3  # 同じカードを3秒以内に複数回タップした場合は無視
 
         # シグナルハンドラー設定
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -588,20 +599,7 @@ class TimekeeperEmoApp:
         Args:
             card_id: カードID
         """
-        import time
-
-        print(f"\n[NFC] Card detected: {card_id}")
-
-        # デバウンスチェック：同じカードを短時間に複数回タップした場合は無視
-        current_time = time.time()
-        if card_id in self.last_card_tap:
-            time_since_last_tap = current_time - self.last_card_tap[card_id]
-            if time_since_last_tap < self.debounce_seconds:
-                print(f"[NFC] Debounce: Ignoring tap (last tap was {time_since_last_tap:.1f}s ago)")
-                return
-
-        # 最後のタップ時刻を更新
-        self.last_card_tap[card_id] = current_time
+        logger.info(f"NFC card tapped: {card_id}")
 
         # カードIDからプロジェクトを取得
         project_id = self.card_projects.get(card_id)
