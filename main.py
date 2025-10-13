@@ -402,6 +402,14 @@ class NFCReader:
 
         except KeyboardInterrupt:
             raise
+        except (IOError, OSError) as e:
+            # close()による強制終了の場合はログを出さずに終了
+            if self.should_stop:
+                logger.debug("NFC reader stopped")
+                return None
+            logger.error(f"IO error reading card: {e}")
+            import time
+            time.sleep(0.5)
         except Exception as e:
             logger.error(f"Error reading card: {e}", exc_info=True)
             import time
@@ -417,10 +425,15 @@ class NFCReader:
 
         if self.clf:
             try:
+                # clf.close()を呼んで強制的にconnect()を中断
+                # これにより、ブロッキング中のconnect()が例外を投げて終了する
                 self.clf.close()
                 logger.info("NFC reader closed")
             except Exception as e:
                 logger.error(f"Error closing NFC reader: {e}")
+            finally:
+                # clfをNoneに設定して、次回のread_card()がダミーモードになるようにする
+                self.clf = None
 
 
 class TimekeeperEmoApp:
