@@ -619,13 +619,8 @@ class TimekeeperEmoApp:
         try:
             self.toggl.start_timer(project_id)
 
-            # プロジェクト名を取得
-            project = self.db.execute("""
-                SELECT project_name FROM project_patterns
-                WHERE project_id = ?
-            """, (project_id,)).fetchone()
-
-            project_name = project['project_name'] if project else 'プロジェクト'
+            # プロジェクト名を取得（優先順位: card_mapping.json > DB > デフォルト）
+            project_name = self._get_project_name(project_id)
 
             # メッセージ送信
             message = self.msg_gen.get_random_message('timer_start', {
@@ -634,10 +629,54 @@ class TimekeeperEmoApp:
             self.emo.send_message(message)
             self.msg_gen.record_notification('timer_start', project_id, message)
 
-            print(f"[OK] Timer started: {project_name}")
+            logger.info(f"Timer started: {project_name}")
 
         except Exception as e:
-            print(f"Error starting timer: {e}")
+            logger.error(f"Error starting timer: {e}")
+
+    def _get_project_name(self, project_id: str) -> str:
+        """
+        プロジェクト名を取得
+
+        Args:
+            project_id: プロジェクトID
+
+        Returns:
+            プロジェクト名
+        """
+        import json
+
+        # 1. card_mapping.jsonから取得を試みる
+        try:
+            mapping_file = os.getenv('CARD_MAPPING_FILE', 'card_mapping.json')
+            if os.path.exists(mapping_file):
+                with open(mapping_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+                # project_idに対応するカードを探す
+                for card_id, info in data.items():
+                    if isinstance(info, dict):
+                        if info.get('project_id') == project_id:
+                            project_name = info.get('project_name')
+                            if project_name:
+                                return project_name
+        except Exception as e:
+            logger.warning(f"Failed to get project name from card_mapping.json: {e}")
+
+        # 2. データベースから取得を試みる
+        try:
+            project = self.db.execute("""
+                SELECT project_name FROM project_patterns
+                WHERE project_id = ?
+            """, (project_id,)).fetchone()
+
+            if project and project['project_name']:
+                return project['project_name']
+        except Exception as e:
+            logger.warning(f"Failed to get project name from database: {e}")
+
+        # 3. デフォルト値
+        return f"プロジェクト{project_id}"
 
     def _stop_timer(self, current_timer: dict):
         """タイマーを停止"""
