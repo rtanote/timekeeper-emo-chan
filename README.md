@@ -122,8 +122,6 @@ This project uses the official [emo-platform-api-python](https://github.com/YUKA
    BOCCO_ROOM_ID=your_room_id
    ```
 
-**Note**: The message sending functionality may require additional API methods not documented in the public SDK. Check the [official documentation](https://platform-api.bocco.me/api-docs/) or consider using LED color changes as an alternative notification method.
-
 **Toggl Track:**
 1. Log in to [Toggl Track](https://track.toggl.com/)
 2. Go to Profile Settings
