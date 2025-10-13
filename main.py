@@ -735,11 +735,23 @@ class TimekeeperEmoApp:
 
     def shutdown(self):
         """アプリケーション終了処理"""
+        import threading
+        import time
+
         print("Stopping scheduler...")
         self.scheduler.stop()
 
         print("Closing NFC reader...")
-        self.nfc.close()
+        # NFCリーダーのクローズを別スレッドで実行（タイムアウト付き）
+        close_thread = threading.Thread(target=self.nfc.close, daemon=True)
+        close_thread.start()
+        close_thread.join(timeout=2.0)  # 最大2秒待つ
+
+        if close_thread.is_alive():
+            logger.warning("NFC reader close timed out, forcing exit")
+            print("NFC reader close timed out")
+        else:
+            logger.info("NFC reader closed successfully")
 
         print("Closing database...")
         self.db.close()
