@@ -8,9 +8,9 @@ Type=simple
 User=pi
 Group=pi
 WorkingDirectory=/home/pi/dev/timekeeper-emo-chan
-Environment="PATH=/home/pi/dev/timekeeper-emo-chan/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=/home/pi/dev/timekeeper-emo-chan/.venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=/home/pi/dev/timekeeper-emo-chan/venv/bin/python main.py
+ExecStart=/home/pi/dev/timekeeper-emo-chan/.venv/bin/python main.py
 Restart=always
 RestartSec=10
 StandardOutput=journal

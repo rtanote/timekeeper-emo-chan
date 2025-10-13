@@ -246,3 +246,21 @@ If you encounter issues:
 3. Create an issue on GitHub
 
 Enjoy your smart time tracking with Emo-chan! 🎉
+
+## memo
+
+python -m nfc
+This is the 1.0.4 version of nfcpy run in Python 3.9.2
+on Linux-5.10.63-v7l+-armv7l-with-glibc2.31
+I'm now searching your system for contactless devices
+** found usb:054c:06c1 at usb:001:003 but access is denied
+-- the device is owned by 'root' but you are 'pi'
+-- also members of the 'root' group would be permitted
+-- you could use 'sudo' but this is not recommended
+-- better assign the device to the 'plugdev' group
+   sudo sh -c 'echo SUBSYSTEM==\"usb\", ACTION==\"add\", ATTRS{idVendor}==\"054c\", ATTRS{idProduct}==\"06c1\", GROUP=\"plugdev\" >> /etc/udev/rules.d/nfcdev.rules'
+   sudo udevadm control -R # then re-attach device
+I'm not trying serial devices because you haven't told me
+-- add the option '--search-tty' to have me looking
+-- but beware that this may break other serial devs
+Sorry, but I couldn't find any contactless device
