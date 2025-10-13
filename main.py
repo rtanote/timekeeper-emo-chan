@@ -389,30 +389,31 @@ class NFCReader:
             # カードを待機（ブロッキング）
             logger.debug("Waiting for NFC card...")
 
-            card_id_holder = {'id': None, 'released': False}
+            card_id_holder = {'id': None}
 
             def on_connect(tag):
                 """カード接続時のコールバック"""
+                import time
                 card_id_holder['id'] = tag.identifier.hex()
                 logger.info(f"Card detected: {card_id_holder['id']}")
-                # Trueを返してカードの接続を保持し、on-releaseが呼ばれるようにする
-                return True
 
-            def on_release(tag):
-                """カードリリース時のコールバック"""
+                # カードがリリースされるまで待機
+                # tag.is_presentがFalseになるまでループ
+                while tag.is_present and not self.should_stop:
+                    time.sleep(0.1)  # 100msごとにチェック
+
                 logger.debug(f"Card released: {card_id_holder['id']}")
-                card_id_holder['released'] = True
+                return False  # リリース後に切断
 
             tag = self.clf.connect(
                 rdwr={
-                    'on-connect': on_connect,
-                    'on-release': on_release
+                    'on-connect': on_connect
                 },
                 terminate=lambda: self.should_stop  # 停止フラグをチェック
             )
 
-            # カードがリリースされた後にIDを返す
-            if card_id_holder['released'] and card_id_holder['id']:
+            # カードが検出されてリリースされた後にIDを返す
+            if card_id_holder['id']:
                 return card_id_holder['id']
 
         except KeyboardInterrupt:
