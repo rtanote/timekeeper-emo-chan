@@ -144,6 +144,28 @@ class BoccoEmoClient:
         except Exception as e:
             print(f"[BOCCO emo] Error sending message: {e}")
 
+    def send_stamp(self, stamp_id: str, message: str = None):
+        """
+        スタンプを送信
+
+        Args:
+            stamp_id: スタンプのUUID
+            message: オプションのメッセージ
+        """
+        print(f"[BOCCO emo] Sending stamp: {stamp_id}")
+
+        if not self.room_client:
+            print("[BOCCO emo] Room client not initialized, stamp not sent")
+            return
+
+        try:
+            response = self.room_client.send_stamp(stamp_id, message)
+            print(f"[BOCCO emo] Stamp sent successfully")
+            return response
+
+        except Exception as e:
+            print(f"[BOCCO emo] Error sending stamp: {e}")
+
 
 class TogglClient:
     """Toggl Track API v9 クライアント"""
@@ -626,6 +648,10 @@ class TimekeeperEmoApp:
         else:
             self._switch_timer(current_timer, project_id)
 
+    # スタンプUUID
+    STAMP_GANBARE = "f175953f-d29d-406a-bb19-43f3eb237c5e"  # がんばれ
+    STAMP_OK = "efa697ac-ed6c-4f18-960c-3abf16a67642"  # OK
+
     def _start_timer(self, project_id: str):
         """タイマーを開始"""
         try:
@@ -634,11 +660,11 @@ class TimekeeperEmoApp:
             # プロジェクト名を取得（優先順位: card_mapping.json > DB > デフォルト）
             project_name = self._get_project_name(project_id)
 
-            # メッセージ送信
+            # メッセージ付きスタンプを送信
             message = self.msg_gen.get_random_message('timer_start', {
                 'project_name': project_name
             })
-            self.emo.send_message(message)
+            self.emo.send_stamp(self.STAMP_GANBARE, message)
             self.msg_gen.record_notification('timer_start', project_id, message)
 
             logger.info(f"Timer started: {project_name}")
@@ -713,12 +739,12 @@ class TimekeeperEmoApp:
             project_id = current_timer.get('project_id', '')
             project_name = current_timer.get('project_name', 'プロジェクト')
 
-            # メッセージ送信
+            # メッセージ付きスタンプを送信
             message = self.msg_gen.get_random_message('timer_stop', {
                 'project_name': project_name,
                 'duration': duration_minutes
             })
-            self.emo.send_message(message)
+            self.emo.send_stamp(self.STAMP_OK, message)
             self.msg_gen.record_notification('timer_stop', project_id, message)
 
             print(f"[OK] Timer stopped: {project_name} ({duration_minutes} min)")
