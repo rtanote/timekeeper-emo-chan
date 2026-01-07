@@ -183,9 +183,9 @@ class BoccoEmoClient:
             import requests
             import json
 
-            # room_clientから必要な情報を取得
+            # clientから必要な情報を取得
             base_url = "https://platform-api.bocco.me"
-            headers = self.room_client._headers
+            headers = self.client._headers
             url = f"{base_url}/v1/rooms/{self.room_id}/motions/text"
 
             payload = {"text": text}
