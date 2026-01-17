@@ -80,10 +80,15 @@ class BoccoEmoClient:
             # アカウントタイプに応じてクライアント初期化
             if account_type == "personal":
                 if access_token and refresh_token:
-                    self.client = Client(tokens=Tokens(
-                        access_token=access_token,
-                        refresh_token=refresh_token
-                    ))
+                    # use_cached_credentials=True でファイル保存を無効化
+                    # これによりトークンファイル破損の問題を回避
+                    self.client = Client(
+                        tokens=Tokens(
+                            access_token=access_token,
+                            refresh_token=refresh_token
+                        ),
+                        use_cached_credentials=True
+                    )
                 else:
                     # 環境変数から読み込み
                     self.client = Client()
